@@ -1,4 +1,4 @@
-# Recommendation API
+# Backend & Devops Task 
 
 A robust RESTful API for managing recommendations, collections, and user interactions. Built with Node.js, Express, and PostgreSQL, this API provides a complete solution for creating, organizing, and sharing recommendations.
 
