@@ -1,16 +1,39 @@
-# Backend & Devops Task 
+# 📦 Recommendation Collections API
 
-A robust RESTful API for managing recommendations, collections, and user interactions. Built with Node.js, Express, and PostgreSQL, this API provides a complete solution for creating, organizing, and sharing recommendations.
+A RESTful API that allows users to manage and organize recommendations (movies, songs, places, etc.) into custom collections.
 
 ## 🚀 Features
 
-- **User Management**: Create and manage user profiles with personal information
-- **Recommendations**: Post and manage recommendations with categories and captions
-- **Collections**: Organize recommendations into custom collections
-- **Relationships**: Flexible many-to-many relationships between collections and recommendations
-- **Docker Support**: Easy deployment with Docker and Docker Compose
-- **PostgreSQL Database**: Robust data storage with Neon PostgreSQL
-- **CSV Data Support**: Import/Export functionality for users, recommendations, and collections
+- Add recommendations to user-defined collections
+- Remove recommendations from collections
+- View all collections along with their associated recommendations
+- Proper error handling for various user scenarios
+
+---
+
+## 🛠️ Tech Stack
+
+- **Backend**: Node.js, Express.js
+- **Database**: PostgreSQL (hosted on [neon.tech](https://neon.tech))
+- **ORM**: Sequelize
+- **DevOps**: Docker, Docker Compose
+
+---
+
+## 🗂️ Database Schema
+
+Tables used:
+
+- `users`
+- `recommendations`
+- `collections`
+- `collection_recommendations` (junction table for many-to-many relationship)
+
+You can import sample CSV data for the first three tables into your Neon database.
+
+---
+
+
 
 ## 🛠️ Tech Stack
 
@@ -20,28 +43,6 @@ A robust RESTful API for managing recommendations, collections, and user interac
 - **Containerization**: Docker, Docker Compose
 - **Environment**: dotenv for configuration
 - **Data Formats**: CSV for data import/export
-
-## 📦 Project Structure
-
-```
-recommendation-api/
-├── controllers/     # Business logic handlers
-├── models/         # Database models
-│   ├── user.js
-│   ├── Recommendation.js
-│   ├── collection.js
-│   └── CollectionRecommendation.js
-├── routes/         # API routes
-├── db/            # Database configuration
-├── data/          # CSV data files
-│   ├── users.csv
-│   ├── recommendations.csv
-│   └── collections.csv
-├── app.js         # Main application file
-├── Dockerfile     # Docker configuration
-├── docker-compose.yml
-└── .env          # Environment variables
-```
 
 ## 🚀 Getting Started
 
@@ -131,20 +132,4 @@ These files can be used for:
 - Initial data seeding
 - Data migration
 - Backup and restore operations
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the ISC License.
-
-## 📞 Support
-
-For support, please open an issue in the GitHub repository.
 
