@@ -2,6 +2,8 @@
 
 A RESTful API that allows users to manage and organize recommendations (movies, songs, places, etc.) into custom collections.
 
+## PLEASE READ DOCUMENTATION.MD FILE FOR DETAILED INFORMATION ABOUT EACH STEP
+
 ## 🚀 Features
 
 - **User Management**: Create and manage user profiles with personal information
@@ -44,6 +46,9 @@ recommendation-api/
 ```
 
 ## 🚀 Getting Started
+
+## PLEASE READ DOCUMENTATION.MD FILE FOR DETAILED INFORMATION ABOUT EACH STEP
+
 
 ### Prerequisites
 
@@ -132,19 +137,11 @@ These files can be used for:
 - Data migration
 - Backup and restore operations
 
-## 🤝 Contributing
+# PLEASE READ DOCUMENTATION.MD FILE FOR DETAILED INFORMATION ABOUT EACH STEP
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
 3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the ISC License.
-
-## 📞 Support
-
-For support, please open an issue in the GitHub repository.
 
