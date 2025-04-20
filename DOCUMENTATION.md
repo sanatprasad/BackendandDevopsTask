@@ -8,6 +8,8 @@
 5. [Data Management](#data-management)
 6. [API Testing](#api-testing)
 7. [System Design](#system-design)
+8. [Dockerization](#dockerization)
+9. [Sequelize ORM Implementation](#sequelize-orm-implementation)
 
 ## System Overview
 
@@ -19,76 +21,196 @@ The Recommendation API is a robust system that allows users to create, manage, a
 - **Containerization**: Docker
 - **Infrastructure as Code**: Terraform
 
-## Setup Instructions
+## Setup and Running Instructions
 
 ### Prerequisites
-- Node.js (v18 or higher)
-- Docker and Docker Compose
-- AWS CLI
-- Terraform (v1.5.7 or higher)
-- PostgreSQL client
 
-### Environment Setup
+1. **Development Environment**:
+   - Node.js (v18 or higher)
+   - npm (v8 or higher)
+   - Git
+   - PostgreSQL client (psql)
 
-1. Clone the repository:
+2. **Infrastructure Tools**:
+   - AWS CLI (v2)
+   - Terraform (v1.5.7 or higher)
+   - Docker and Docker Compose
+
+3. **AWS Requirements**:
+   - AWS account with appropriate permissions
+   - AWS CLI configured with credentials
+   - IAM user with EC2, RDS, VPC, and ALB permissions
+
+### Backend Setup
+
+1. **Clone Repository**:
    ```bash
    git clone <repository-url>
    cd recommendation-api
    ```
 
-2. Create environment files:
-   ```bash
-   # .env file
-   DATABASE_URL=postgresql://postgres:postgres@db:5432/recommendation_db
-   AWS_ACCESS_KEY_ID=your_access_key
-   AWS_SECRET_ACCESS_KEY=your_secret_key
-   AWS_DEFAULT_REGION=us-east-1
-   ```
-
-3. Install dependencies:
+2. **Install Dependencies**:
    ```bash
    npm install
    ```
 
-## Running the Application
-
-### Local Development
-
-1. Start the application with Docker:
+3. **Environment Configuration**:
    ```bash
-   docker-compose up --build
+   # Create .env file
+   cat > .env << EOL
+   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/recommendation_db
+   PORT=3000
+   NODE_ENV=development
+   EOL
    ```
 
-2. The API will be available at `http://localhost:8000`
+4. **Database Setup**:
+   ```bash
+   # Create database
+   createdb recommendation_db
 
-### Infrastructure Deployment
+   # Connect to database
+   psql -d recommendation_db
 
-1. Initialize Terraform:
+   # Run migrations
+   npm run migrate
+   ```
+
+5. **Start Development Server**:
+   ```bash
+   # Start server with hot reload
+   npm run dev
+   ```
+
+### Infrastructure Setup
+
+1. **Terraform Configuration**:
    ```bash
    cd terraform
+
+   # Create terraform.tfvars
+   cat > terraform.tfvars << EOL
+   vpc_cidr_block = "10.0.0.0/16"
+   public_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
+   private_subnet_cidrs = ["10.0.3.0/24", "10.0.4.0/24"]
+   instance_type = "t2.micro"
+   db_username = "postgres"
+   db_password = "your_secure_password"
+   EOL
+   ```
+
+2. **Initialize Terraform**:
+   ```bash
    terraform init
    ```
 
-2. Review the deployment plan:
+3. **Review Infrastructure Plan**:
    ```bash
    terraform plan
    ```
 
-3. Apply the infrastructure:
+4. **Apply Infrastructure**:
    ```bash
    terraform apply
    ```
 
-4. Verify deployment:
+### Running in Production
+
+1. **Build Application**:
    ```bash
-   # Check EC2 instances
-   aws ec2 describe-instances
+   npm run build
+   ```
 
-   # Check RDS instance
-   aws rds describe-db-instances
+2. **Database Migration**:
+   ```bash
+   # Connect to RDS
+   psql -h <rds-endpoint> -U postgres -d recommendation_db
 
-   # Check ALB
-   aws elbv2 describe-load-balancers
+   # Run migrations
+   npm run migrate:prod
+   ```
+
+3. **Start Production Server**:
+   ```bash
+   npm start
+   ```
+
+### Infrastructure Management
+
+1. **Scaling Operations**:
+   ```bash
+   # Check current instances
+   aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names api-asg
+
+   # Update desired capacity
+   aws autoscaling set-desired-capacity --auto-scaling-group-name api-asg --desired-capacity 3
+   ```
+
+2. **Database Operations**:
+   ```bash
+   # Check RDS status
+   aws rds describe-db-instances --db-instance-identifier recommendation-db
+
+   # Create snapshot
+   aws rds create-db-snapshot --db-instance-identifier recommendation-db --db-snapshot-identifier backup-$(date +%Y%m%d)
+   ```
+
+3. **Load Balancer Operations**:
+   ```bash
+   # Check ALB status
+   aws elbv2 describe-load-balancers --names recommendation-lb
+
+   # Check target health
+   aws elbv2 describe-target-health --target-group-arn <target-group-arn>
+   ```
+
+### Monitoring and Logging
+
+1. **Application Logs**:
+   ```bash
+   # View CloudWatch logs
+   aws logs get-log-events --log-group-name /recommendation-api/app --log-stream-name <stream-name>
+   ```
+
+2. **Infrastructure Monitoring**:
+   ```bash
+   # Check CloudWatch metrics
+   aws cloudwatch get-metric-statistics --namespace AWS/EC2 --metric-name CPUUtilization --dimensions Name=AutoScalingGroupName,Value=api-asg
+   ```
+
+3. **Database Monitoring**:
+   ```bash
+   # Check RDS metrics
+   aws cloudwatch get-metric-statistics --namespace AWS/RDS --metric-name CPUUtilization --dimensions Name=DBInstanceIdentifier,Value=recommendation-db
+   ```
+
+### Troubleshooting
+
+1. **Application Issues**:
+   ```bash
+   # Check application logs
+   aws logs get-log-events --log-group-name /recommendation-api/app
+
+   # Check EC2 instance status
+   aws ec2 describe-instance-status --instance-ids <instance-id>
+   ```
+
+2. **Database Issues**:
+   ```bash
+   # Check RDS logs
+   aws rds describe-db-log-files --db-instance-identifier recommendation-db
+
+   # Check database connections
+   psql -h <rds-endpoint> -U postgres -d recommendation_db -c "SELECT * FROM pg_stat_activity;"
+   ```
+
+3. **Network Issues**:
+   ```bash
+   # Check security groups
+   aws ec2 describe-security-groups --group-ids <sg-id>
+
+   # Check VPC flow logs
+   aws ec2 describe-flow-logs --filter Name=resource-id,Values=<vpc-id>
    ```
 
 ## Data Management
@@ -245,7 +367,7 @@ FROM pg_stat_user_indexes;
 
 ### Base URL
 ```
-http://localhost:8000
+https://localhost:8000
 ```
 
 ### Authentication
@@ -257,7 +379,7 @@ Currently, the API does not require authentication. All endpoints are publicly a
 
 ##### Add Recommendation to Collection
 ```http
-POST /add-to-collection
+POST https://localhost:8000/add-to-collection
 ```
 **Request Body:**
 ```json
@@ -275,7 +397,7 @@ POST /add-to-collection
 
 ##### Remove Recommendation from Collection
 ```http
-DELETE /remove-from-collection
+DELETE https://localhost:8000/remove-from-collection
 ```
 **Request Body:**
 ```json
@@ -291,7 +413,7 @@ DELETE /remove-from-collection
 
 ##### Get User Collections
 ```http
-GET /user/:userId/collections
+GET https://localhost:8000/user/:userId/collections
 ```
 **Query Parameters:**
 - `page`: Page number (default: 1)
@@ -328,7 +450,7 @@ GET /user/:userId/collections
 
 ##### Get Recommendations in Collection
 ```http
-GET /collection/:collectionId/recommendations
+GET https://localhost:8000/collection/:collectionId/recommendations
 ```
 **Query Parameters:**
 - `page`: Page number (default: 1)
@@ -361,7 +483,7 @@ GET /collection/:collectionId/recommendations
 
 ##### Get All Collections
 ```http
-GET /collections
+GET https://localhost:8000/collections
 ```
 **Query Parameters:**
 - `page`: Page number (default: 1)
@@ -381,7 +503,7 @@ GET /collections
 
 ##### Get All Recommendations
 ```http
-GET /recommendations
+GET https://localhost:8000/recommendations
 ```
 **Query Parameters:**
 - `page`: Page number (default: 1)
@@ -403,7 +525,7 @@ GET /recommendations
 
 ##### Get All Users
 ```http
-GET /users
+GET https://localhost:8000/users
 ```
 **Query Parameters:**
 - `page`: Page number (default: 1)
@@ -425,7 +547,7 @@ GET /users
 
 ##### Get All Collection Recommendations
 ```http
-GET /collection-recommendations
+GET https://localhost:8000/collection-recommendations
 ```
 **Query Parameters:**
 - `page`: Page number (default: 1)
@@ -465,7 +587,7 @@ All list endpoints support pagination through query parameters:
 
 Example:
 ```
-GET /collections?page=2&limit=20
+GET https://localhost:8000/collections?page=2&limit=20
 ```
 
 ## System Design
@@ -526,53 +648,690 @@ GET /collections?page=2&limit=20
    - Infrastructure as code for quick recovery
    - Multi-AZ deployment for redundancy
 
-## Troubleshooting
+## System Architecture Diagrams
 
-### Common Issues
+### 1. Application Architecture
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Client Applications                       │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Application Load Balancer                    │
+│                     (Port 80, HTTP)                             │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Auto Scaling Group                          │
+│                                                                 │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐         │
+│  │  EC2 Instance │    │  EC2 Instance │    │  EC2 Instance │         │
+│  │  Node.js App  │    │  Node.js App  │    │  Node.js App  │         │
+│  │  Port 3000   │    │  Port 3000   │    │  Port 3000   │         │
+│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘         │
+│         │                  │                  │                 │
+│         └──────────────────┴──────────────────┘                 │
+│                                │                                │
+└────────────────────────────────┼────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     RDS PostgreSQL 14.7                         │
+│                     (Port 5432, Private)                        │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-1. **Database Connection**:
-   ```bash
-   # Check database connection
-   psql -h localhost -U postgres -d recommendation_db
-   ```
+### 2. Network Architecture
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                            VPC                                  │
+│                     CIDR: 10.0.0.0/16                          │
+│                                                                 │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐         │
+│  │  Public      │    │  Private     │    │  Private     │         │
+│  │  Subnet      │    │  Subnet      │    │  Subnet      │         │
+│  │  (ALB)       │    │  (EC2)       │    │  (RDS)       │         │
+│  │  10.0.1.0/24 │    │  10.0.2.0/24 │    │  10.0.3.0/24 │         │
+│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘         │
+│         │                  │                  │                 │
+│         └──────────────────┴──────────────────┘                 │
+│                                │                                │
+└────────────────────────────────┼────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Security Groups                             │
+│                                                                 │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐         │
+│  │  ALB SG     │    │  EC2 SG     │    │  RDS SG     │         │
+│  │  In: 80     │    │  In: 22,3000│    │  In: 5432   │         │
+│  │  Out: All   │    │  Out: All   │    │  Out: All   │         │
+│  └─────────────┘    └─────────────┘    └─────────────┘         │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-2. **Application Logs**:
-   ```bash
-   # View application logs
-   docker-compose logs app
-   ```
+### 3. Auto Scaling Configuration
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     Auto Scaling Group                          │
+│                                                                 │
+│  Desired: 2    Min: 1    Max: 4                                │
+│                                                                 │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐         │
+│  │  Scale Up   │    │  Scale Down │    │  Cooldown   │         │
+│  │  CPU > 70%  │    │  CPU < 30%  │    │  300s       │         │
+│  └──────┬──────┘    └──────┬──────┘    └─────────────┘         │
+│         │                  │                                   │
+│         ▼                  ▼                                   │
+│  ┌─────────────┐    ┌─────────────┐                           │
+│  │  CloudWatch │    │  CloudWatch │                           │
+│  │  Alarm      │    │  Alarm      │                           │
+│  └─────────────┘    └─────────────┘                           │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-3. **Infrastructure Status**:
-   ```bash
-   # Check Terraform state
-   terraform show
+### 4. Database Schema
+```
+┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
+│     Users       │      │  Recommendations │      │   Collections   │
+├─────────────────┤      ├─────────────────┤      ├─────────────────┤
+│ id (PK)         │      │ id (PK)         │      │ id (PK)         │
+│ fname           │      │ user_id (FK)    │      │ user_id (FK)    │
+│ sname           │      │ title           │      │ title           │
+│ profile_picture │      │ caption         │      │ created_at      │
+│ bio             │      │ category        │      └────────┬────────┘
+│ created_at      │      │ created_at      │               │
+└────────┬────────┘      └────────┬────────┘               │
+         │                        │                        │
+         │                        │                        │
+         │                        │                        │
+         ▼                        ▼                        ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   CollectionRecommendations                      │
+├─────────────────────────────────────────────────────────────────┤
+│ collection_id (PK,FK)                                           │
+│ recommendation_id (PK,FK)                                       │
+│ created_at                                                      │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-   # Check AWS resources
-   aws cloudformation describe-stack-resources --stack-name recommendation-api
-   ```
+### 5. API Flow
+```
+┌─────────┐     ┌─────────┐     ┌─────────┐     ┌─────────┐
+│  Client │     │   ALB   │     │  EC2    │     │  RDS    │
+└────┬────┘     └────┬────┘     └────┬────┘     └────┬────┘
+     │               │               │               │
+     │  HTTP/80      │               │               │
+     │──────────────>│               │               │
+     │               │               │               │
+     │               │  HTTP/3000    │               │
+     │               │──────────────>│               │
+     │               │               │               │
+     │               │               │  PostgreSQL   │
+     │               │               │  /5432        │
+     │               │               │──────────────>│
+     │               │               │               │
+     │               │               │  Response     │
+     │               │               │<──────────────│
+     │               │               │               │
+     │               │  Response     │               │
+     │               │<──────────────│               │
+     │               │               │               │
+     │  Response     │               │               │
+     │<──────────────│               │               │
+     │               │               │               │
+```
 
-### Performance Optimization
+### 6. Data Flow
+```
+┌─────────┐     ┌─────────┐     ┌─────────┐     ┌─────────┐
+│  Client │     │  API    │     │ Sequelize│     │  DB     │
+└────┬────┘     └────┬────┘     └────┬────┘     └────┬────┘
+     │               │               │               │
+     │  JSON Request │               │               │
+     │──────────────>│               │               │
+     │               │               │               │
+     │               │  Model        │               │
+     │               │  Operations   │               │
+     │               │──────────────>│               │
+     │               │               │               │
+     │               │               │  SQL Query    │
+     │               │               │──────────────>│
+     │               │               │               │
+     │               │               │  SQL Result   │
+     │               │               │<──────────────│
+     │               │               │               │
+     │               │  JSON Response│               │
+     │               │<──────────────│               │
+     │               │               │               │
+     │  JSON Response│               │               │
+     │<──────────────│               │               │
+     │               │               │               │
+```
 
-1. **Database Optimization**:
-   - Index frequently queried columns
-   - Regular VACUUM operations
-   - Query optimization
+## Dockerization
 
-2. **Application Optimization**:
-   - Connection pooling
-   - Caching implementation
-   - Async operations
+### Container Architecture
 
-## Future Enhancements
+The application is containerized using Docker and Docker Compose, providing a consistent development and deployment environment. The setup includes:
 
-1. **Planned Features**:
-   - User authentication
-   - API rate limiting
-   - Caching layer
-   - Search functionality
+1. **Application Container**:
+   - Node.js 18 Alpine-based image
+   - Express.js application server
+   - Terraform and AWS CLI tools
+   - Environment variables management
+   - Volume mounts for code and dependencies
 
-2. **Infrastructure Improvements**:
-   - Multi-region deployment
-   - CDN integration
-   - WAF implementation
+2. **Database Container**:
+   - PostgreSQL 14 Alpine-based image
+   - Persistent volume for data storage
+   - Environment variables for configuration
+   - Exposed port 5432 for database access
+
+### Docker Features
+
+1. **Multi-stage Build**:
+   - Optimized image size using Alpine Linux
+   - Separate build and runtime stages
+   - Minimal dependencies
+
+2. **Environment Management**:
+   - Environment variables for configuration
+   - AWS credentials management
+   - Database connection settings
+   - Application settings
+
+3. **Volume Management**:
+   - Persistent database storage
+   - Live code reloading
+   - Node modules caching
+   - AWS credentials mounting
+
+4. **Network Configuration**:
+   - Internal network between containers
+   - Exposed ports for API and database
+   - Secure communication between services
+
+### Docker Compose Features
+
+1. **Service Orchestration**:
+   - Automatic service startup
+   - Dependency management
+   - Health checks
+   - Service scaling
+
+2. **Development Workflow**:
+   - Hot-reloading for development
+   - Debugging support
+   - Log management
+   - Environment isolation
+
+3. **Infrastructure as Code**:
+   - Terraform integration
+   - AWS CLI tools
+   - Infrastructure management
+   - Cloud resource provisioning
+
+### Running with Docker
+
+1. **Development Mode**:
+```bash
+# Build and start containers
+docker-compose up --build
+
+# View logs
+docker-compose logs -f
+
+# Access application
+https://localhost:8000
+
+# Access database
+psql -h localhost -U postgres -d recommendation_db
+```
+
+2. **Production Mode**:
+```bash
+# Build production image
+docker-compose -f docker-compose.prod.yml build
+
+# Start production services
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+3. **Infrastructure Management**:
+```bash
+# Access application container
+docker-compose exec app bash
+
+# Run Terraform commands
+docker-compose exec app terraform init
+docker-compose exec app terraform plan
+docker-compose exec app terraform apply
+
+# Run AWS CLI commands
+docker-compose exec app aws ec2 describe-instances
+```
+
+### Docker Best Practices
+
+1. **Security**:
+   - Non-root user in containers
+   - Minimal base images
+   - Regular security updates
+   - Secrets management
+
+2. **Performance**:
+   - Multi-stage builds
+   - Layer optimization
+   - Caching strategies
+   - Resource limits
+
+3. **Maintenance**:
+   - Regular image updates
+   - Log rotation
+   - Backup strategies
+   - Monitoring setup
+
+4. **Development**:
+   - Local development environment
+   - Debugging tools
+   - Testing frameworks
+   - CI/CD integration
+
+## Database Schema
+
+### Overview
+
+The database schema consists of four main tables with relationships designed to support the recommendation system:
+
+1. **Users** - Stores user information
+2. **Recommendations** - Stores recommendation items
+3. **Collections** - Stores user collections
+4. **CollectionRecommendations** - Junction table for collections and recommendations
+
+### Table Definitions
+
+#### 1. Users Table
+```sql
+CREATE TABLE Users (
+    id BIGINT PRIMARY KEY,
+    fname VARCHAR(255) NOT NULL,
+    sname VARCHAR(255) NOT NULL,
+    profile_picture VARCHAR(255),
+    bio TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes
+CREATE INDEX idx_users_created_at ON Users(created_at);
+```
+
+**Fields:**
+- `id`: Unique identifier for the user
+- `fname`: User's first name
+- `sname`: User's surname
+- `profile_picture`: URL to user's profile picture
+- `bio`: User's biography text
+- `created_at`: Timestamp of user creation
+
+#### 2. Recommendations Table
+```sql
+CREATE TABLE Recommendations (
+    id BIGINT PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES Users(id),
+    title VARCHAR(255) NOT NULL,
+    caption TEXT,
+    category VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes
+CREATE INDEX idx_recommendations_user_id ON Recommendations(user_id);
+CREATE INDEX idx_recommendations_category ON Recommendations(category);
+CREATE INDEX idx_recommendations_created_at ON Recommendations(created_at);
+```
+
+**Fields:**
+- `id`: Unique identifier for the recommendation
+- `user_id`: Foreign key to Users table
+- `title`: Title of the recommendation
+- `caption`: Detailed description
+- `category`: Category of the recommendation
+- `created_at`: Timestamp of recommendation creation
+
+#### 3. Collections Table
+```sql
+CREATE TABLE Collections (
+    id BIGINT PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES Users(id),
+    title VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes
+CREATE INDEX idx_collections_user_id ON Collections(user_id);
+CREATE INDEX idx_collections_created_at ON Collections(created_at);
+```
+
+**Fields:**
+- `id`: Unique identifier for the collection
+- `user_id`: Foreign key to Users table
+- `title`: Title of the collection
+- `created_at`: Timestamp of collection creation
+
+#### 4. CollectionRecommendations Table
+```sql
+CREATE TABLE CollectionRecommendations (
+    collection_id BIGINT NOT NULL REFERENCES Collections(id),
+    recommendation_id BIGINT NOT NULL REFERENCES Recommendations(id),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (collection_id, recommendation_id)
+);
+
+-- Indexes
+CREATE INDEX idx_collection_recommendations_collection_id ON CollectionRecommendations(collection_id);
+CREATE INDEX idx_collection_recommendations_recommendation_id ON CollectionRecommendations(recommendation_id);
+```
+
+**Fields:**
+- `collection_id`: Foreign key to Collections table
+- `recommendation_id`: Foreign key to Recommendations table
+- `created_at`: Timestamp of when recommendation was added to collection
+
+### Relationships
+
+1. **Users to Recommendations** (One-to-Many):
+   - One user can create many recommendations
+   - Foreign key: `Recommendations.user_id` → `Users.id`
+
+2. **Users to Collections** (One-to-Many):
+   - One user can create many collections
+   - Foreign key: `Collections.user_id` → `Users.id`
+
+3. **Collections to Recommendations** (Many-to-Many):
+   - One collection can contain many recommendations
+   - One recommendation can be in many collections
+   - Junction table: `CollectionRecommendations`
+
+### Common Queries
+
+1. **Get User's Collections with Recommendations**:
+```sql
+SELECT c.*, r.*, u.*
+FROM Collections c
+JOIN CollectionRecommendations cr ON c.id = cr.collection_id
+JOIN Recommendations r ON cr.recommendation_id = r.id
+JOIN Users u ON r.user_id = u.id
+WHERE c.user_id = :userId;
+```
+
+2. **Get Recommendations in a Collection**:
+```sql
+SELECT r.*, u.*
+FROM Recommendations r
+JOIN CollectionRecommendations cr ON r.id = cr.recommendation_id
+JOIN Users u ON r.user_id = u.id
+WHERE cr.collection_id = :collectionId;
+```
+
+3. **Get User's Recommendations**:
+```sql
+SELECT r.*
+FROM Recommendations r
+WHERE r.user_id = :userId
+ORDER BY r.created_at DESC;
+```
+
+### Database Maintenance
+
+1. **Regular Maintenance**:
+```sql
+-- Analyze tables for query optimization
+ANALYZE Users;
+ANALYZE Recommendations;
+ANALYZE Collections;
+ANALYZE CollectionRecommendations;
+
+-- Vacuum tables to reclaim space
+VACUUM FULL Users;
+VACUUM FULL Recommendations;
+VACUUM FULL Collections;
+VACUUM FULL CollectionRecommendations;
+```
+
+2. **Performance Monitoring**:
+```sql
+-- Check table sizes
+SELECT pg_size_pretty(pg_total_relation_size('Users'));
+SELECT pg_size_pretty(pg_total_relation_size('Recommendations'));
+SELECT pg_size_pretty(pg_total_relation_size('Collections'));
+SELECT pg_size_pretty(pg_total_relation_size('CollectionRecommendations'));
+
+-- Check index usage
+SELECT schemaname, relname, idx_scan, idx_tup_read, idx_tup_fetch 
+FROM pg_stat_user_indexes;
+```
+
+3. **Backup and Restore**:
+```bash
+# Backup
+pg_dump -h localhost -U postgres -d recommendation_db > backup.sql
+
+# Restore
+psql -h localhost -U postgres -d recommendation_db < backup.sql
+```
+
+### Data Validation
+
+1. **Check Data Integrity**:
+```sql
+-- Check for orphaned recommendations
+SELECT r.id
+FROM Recommendations r
+LEFT JOIN Users u ON r.user_id = u.id
+WHERE u.id IS NULL;
+
+-- Check for orphaned collections
+SELECT c.id
+FROM Collections c
+LEFT JOIN Users u ON c.user_id = u.id
+WHERE u.id IS NULL;
+
+-- Check for invalid collection-recommendation relationships
+SELECT cr.*
+FROM CollectionRecommendations cr
+LEFT JOIN Collections c ON cr.collection_id = c.id
+LEFT JOIN Recommendations r ON cr.recommendation_id = r.id
+WHERE c.id IS NULL OR r.id IS NULL;
+```
+
+## Sequelize ORM Implementation
+
+### Overview
+
+Sequelize is used as the Object-Relational Mapping (ORM) tool to interact with the PostgreSQL database. It provides a robust set of features for database operations while maintaining type safety and query optimization.
+
+### Model Definitions
+
+1. **User Model**:
+```javascript
+const { Model, DataTypes } = require('sequelize');
+
+class User extends Model {
+  static init(sequelize) {
+    super.init({
+      id: {
+        type: DataTypes.BIGINT,
+        primaryKey: true,
+        autoIncrement: true
+      },
+      fname: {
+        type: DataTypes.STRING,
+        allowNull: false
+      },
+      sname: {
+        type: DataTypes.STRING,
+        allowNull: false
+      },
+      profile_picture: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      bio: {
+        type: DataTypes.TEXT,
+        allowNull: true
+      }
+    }, {
+      sequelize,
+      modelName: 'User',
+      tableName: 'Users',
+      timestamps: true,
+      createdAt: 'created_at',
+      updatedAt: false
+    });
+  }
+
+  static associate(models) {
+    this.hasMany(models.Recommendation, { foreignKey: 'user_id' });
+    this.hasMany(models.Collection, { foreignKey: 'user_id' });
+  }
+}
+```
+
+2. **Recommendation Model**:
+```javascript
+class Recommendation extends Model {
+  static init(sequelize) {
+    super.init({
+      id: {
+        type: DataTypes.BIGINT,
+        primaryKey: true,
+        autoIncrement: true
+      },
+      title: {
+        type: DataTypes.STRING,
+        allowNull: false
+      },
+      caption: {
+        type: DataTypes.TEXT,
+        allowNull: true
+      },
+      category: {
+        type: DataTypes.STRING,
+        allowNull: false
+      }
+    }, {
+      sequelize,
+      modelName: 'Recommendation',
+      tableName: 'Recommendations',
+      timestamps: true,
+      createdAt: 'created_at',
+      updatedAt: false
+    });
+  }
+
+  static associate(models) {
+    this.belongsTo(models.User, { foreignKey: 'user_id' });
+    this.belongsToMany(models.Collection, {
+      through: models.CollectionRecommendation,
+      foreignKey: 'recommendation_id'
+    });
+  }
+}
+```
+
+3. **Collection Model**:
+```javascript
+class Collection extends Model {
+  static init(sequelize) {
+    super.init({
+      id: {
+        type: DataTypes.BIGINT,
+        primaryKey: true,
+        autoIncrement: true
+      },
+      title: {
+        type: DataTypes.STRING,
+        allowNull: false
+      }
+    }, {
+      sequelize,
+      modelName: 'Collection',
+      tableName: 'Collections',
+      timestamps: true,
+      createdAt: 'created_at',
+      updatedAt: false
+    });
+  }
+
+  static associate(models) {
+    this.belongsTo(models.User, { foreignKey: 'user_id' });
+    this.belongsToMany(models.Recommendation, {
+      through: models.CollectionRecommendation,
+      foreignKey: 'collection_id'
+    });
+  }
+}
+```
+
+4. **CollectionRecommendation Model**:
+```javascript
+class CollectionRecommendation extends Model {
+  static init(sequelize) {
+    super.init({
+      collection_id: {
+        type: DataTypes.BIGINT,
+        primaryKey: true
+      },
+      recommendation_id: {
+        type: DataTypes.BIGINT,
+        primaryKey: true
+      }
+    }, {
+      sequelize,
+      modelName: 'CollectionRecommendation',
+      tableName: 'CollectionRecommendations',
+      timestamps: true,
+      createdAt: 'created_at',
+      updatedAt: false
+    });
+  }
+
+  static associate(models) {
+    this.belongsTo(models.Collection, { foreignKey: 'collection_id' });
+    this.belongsTo(models.Recommendation, { foreignKey: 'recommendation_id' });
+  }
+}
+```
+
+### Best Practices
+
+1. **Query Optimization**:
+   - Use eager loading with `include`
+   - Implement proper indexing
+   - Use transactions for related operations
+   - Implement pagination for large datasets
+
+2. **Error Handling**:
+```javascript
+try {
+  const result = await Model.operation();
+} catch (error) {
+  if (error instanceof Sequelize.ValidationError) {
+    // Handle validation errors
+  } else if (error instanceof Sequelize.DatabaseError) {
+    // Handle database errors
+  } else {
+    // Handle other errors
+  }
+}
+```
+
+3. **Performance Tips**:
+   - Use bulk operations for multiple records
+   - Implement caching where appropriate
+   - Monitor and optimize slow queries
+   - Use appropriate data types
 
