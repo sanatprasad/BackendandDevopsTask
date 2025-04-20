@@ -1335,3 +1335,115 @@ try {
    - Monitor and optimize slow queries
    - Use appropriate data types
 
+## Terraform Files Description
+
+### 1. `main.tf`
+```hcl
+# Core infrastructure components
+- VPC (Virtual Private Cloud) setup
+- Internet Gateway for public internet access
+- Public subnets in two availability zones
+- Route tables and associations
+- EC2 instance security group
+- Initial EC2 instance configuration
+```
+
+### 2. `database.tf`
+```hcl
+# Database infrastructure
+- RDS security group for PostgreSQL
+- DB subnet group configuration
+- PostgreSQL RDS instance setup
+- Database parameter group
+- Database backup configuration
+```
+
+### 3. `autoscaling.tf`
+```hcl
+# Auto-scaling configuration
+- Launch template for EC2 instances
+- Auto Scaling Group (ASG) setup
+- Scaling policies for CPU utilization
+- CloudWatch alarms for scaling triggers
+- Target tracking scaling policies
+```
+
+### 4. `alb.tf`
+```hcl
+# Load Balancer configuration
+- Application Load Balancer (ALB) setup
+- ALB security group
+- Target group for API instances
+- Listener configuration
+- Target group attachments
+```
+
+### 5. `variables.tf`
+```hcl
+# Variable definitions
+- AWS region configuration
+- VPC CIDR block
+- Subnet CIDR blocks
+- Instance types and sizes
+- Database configuration
+- Environment tags
+```
+
+### 6. `terraform.tfvars`
+```hcl
+# Variable values
+- Actual values for variables defined in variables.tf
+- Environment-specific configurations
+- Resource sizes and counts
+- Tag values
+```
+
+### 7. `provider.tf`
+```hcl
+# Provider configuration
+- AWS provider setup
+- Region specification
+- Authentication configuration
+```
+
+### 8. `outputs.tf`
+```hcl
+# Output values
+- VPC ID
+- Public subnet IDs
+- ALB DNS name
+- RDS endpoint
+- EC2 instance public IP
+```
+
+### Key Insights
+
+1. **Infrastructure as Code Structure**
+   - Modular design with separate files for different components
+   - Clear separation of concerns
+   - Easy to maintain and update individual components
+
+2. **Security Considerations**
+   - Security groups for each component
+   - Private database access
+   - Public access only through ALB
+   - Proper network isolation
+
+3. **Scalability Features**
+   - Auto-scaling group for horizontal scaling
+   - Load balancer for traffic distribution
+   - Multi-AZ database setup
+   - Flexible instance sizing
+
+4. **High Availability**
+   - Multi-AZ deployment
+   - Auto-scaling capabilities
+   - Load balanced architecture
+   - Database backup configuration
+
+5. **Cost Optimization**
+   - Variable instance sizes
+   - Configurable scaling policies
+   - Flexible storage options
+   - Environment-based resource sizing
+
